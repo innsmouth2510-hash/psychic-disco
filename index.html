@@ -172,6 +172,7 @@
                 text: "В следующий раз думай лучше. Начни заново.",
                 image: "img_dead.jpg",
                 sound: "scream.mp3", // <-- Звук проигрыша
+                soundVolume: 0.5,
                 choices: [
                     { text: "Начать заново", nextScene: "start" }
                 ]
@@ -319,7 +320,17 @@
                 // 3. Звуковые эффекты (SFX) для конкретной сцены
                 if (scene.sound) {
                     const sfx = new Audio(scene.sound);
-                    sfx.volume = 1.0; // Громкость эффектов 100%
+                    
+                    // 👇 МАГИЯ ЗДЕСЬ 👇
+                    // Если в сцене написана громкость (soundVolume), используем её.
+                    // Если нет — ставим по умолчанию 1.0 (100%)
+                    if (scene.soundVolume !== undefined) {
+                        sfx.volume = scene.soundVolume;
+                    } else {
+                        sfx.volume = 1.0; 
+                    }
+                    // 👆 ---------------- 👆
+
                     sfx.play().catch(e => console.log("Ошибка звука SFX"));
                 }
 
@@ -360,6 +371,7 @@
 </body>
 
 </html>
+
 
 
 
