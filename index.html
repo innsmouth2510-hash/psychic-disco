@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horror Quest</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            background-color: #0d0d0d; /* Черный фон */
+            color: #e0e0e0; /* Светло-серый текст */
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            user-select: none;
+            overflow: hidden; /* Чтобы не скроллилось лишнее */
+        }
+
+        /* Плеер фоновой музыки (скрыт) */
+        audio { display: none; }
+
+        .image-container {
+            width: 100%;
+            max-width: 400px;
+            height: 250px;
+            background-color: #1a1a1a;
+            border: 2px solid #333;
+            margin-bottom: 25px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+
+        #game-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Картинка заполняет рамку, не искажаясь */
+            display: block;
+        }
+
+        #story-text {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            max-width: 400px;
+            text-shadow: 0 0 5px rgba(0,0,0,0.8);
+            min-height: 60px; /* Чтобы кнопки не прыгали, если текста мало */
+            transition: opacity 0.3s ease; /* Плавное появление */
+        }
+
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 350px;
+        }
+
+        button {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            border: 1px solid #555;
+            padding: 15px 10px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:hover, button:active {
+            background-color: #fff;
+            color: #000;
+            border-color: #fff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+            transform: scale(1.02);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- ФОНОВАЯ МУЗЫКА (Зациклена loop) -->
+    <!-- Замени theme.mp3 на название своего файла -->
+    <audio id="bg-music" loop>
+        <source src="theme.mp3" type="audio/mp3">
+    </audio>
+
+    <div class="image-container">
+        <!-- Заглушка, пока не загрузится сцена -->
+        <img id="game-image" src="" alt="Scene">
+    </div>
+
+    <div id="story-text">Загрузка...</div>
+
+    <div class="btn-container" id="choices">
+        <!-- Кнопки генерируются здесь -->
+    </div>
+
+    <script>
+        // --- Инициализация Телеграм ---
+        const tg = window.Telegram.WebApp;
+        tg.expand(); 
+        tg.setHeaderColor('#0d0d0d');
+        tg.setBackgroundColor('#0d0d0d');
+
+        // --- ЛОГИКА ФОНОВОЙ МУЗЫКИ ---
+        const bgAudio = document.getElementById("bg-music");
+        bgAudio.volume = 0.3; // Громкость фона 30%
+
+        function startBackgroundMusic() {
+            bgAudio.play().then(() => {
+                // Если музыка пошла, убираем прослушку клика
+                document.body.removeEventListener('click', startBackgroundMusic);
+                document.body.removeEventListener('touchstart', startBackgroundMusic);
+            }).catch(e => console.log("Ждем взаимодействия..."));
+        }
+
+        // Браузеры запрещают автозапуск аудио. 
+        // Музыка включится после первого тапа по экрану.
+        document.body.addEventListener('click', startBackgroundMusic);
+        document.body.addEventListener('touchstart', startBackgroundMusic);
+
+
+        // --- СЦЕНАРИЙ ИГРЫ ---
+        // image: имя файла картинки
+        // sound: имя файла звука (скример, выстрел), который сработает при открытии сцены (НЕОБЯЗАТЕЛЬНО)
+        const story = {
+            "start": {
+                text: "Я один дома. Я слышу шаги за дверью. Дыхание перехватывает.",
+                image: "img_start.jpg", 
+                choices: [
+                    { text: "Спрятаться под кровать", nextScene: "hide_bed" },
+                    { text: "Взять нож", nextScene: "take_knife" }
+                ]
+            },
+            "take_knife": {
+                text: "Руки дрожат. Нож почти выскальзывает из вспотевшей ладони. Оно уже совсем близко.",
+                image: "img_knife.jpg",
+                choices: [
+                    { text: "Ударить существо", nextScene: "cruel_dead" },
+                    { text: "Молить о пощаде", nextScene: "game_over" }
+                ]
+            },
+            "cruel_dead": {
+                text: "Нож его даже не поцарапал! Нет, я не хочу умирать!",
+                image: "img_monster.gif",
+                sound: "scream.mp3", // <-- ЗВУКОВОЙ ЭФФЕКТ (СКРИМЕР)
+                choices: [
+                    { text: "Начать заново", nextScene: "start" }
+                ]
+            },
+            "hide_bed": {
+                text: "Ты залез под кровать. Пыль щекочет нос. Дверь со скрипом открывается... Ты чувствуешь запах гнили...",
+                image: "img_bed.gif",
+                sound: "creak.mp3", // <-- ЗВУК СКРИПА
+                choices: [
+                    { text: "Чихнуть", nextScene: "game_over" },
+                    { text: "Задержать дыхание", nextScene: "wait" }
+                ]
+            },
+            "game_over": {
+                text: "В следующий раз думай лучше. Начни заново.",
+                image: "img_dead.jpg",
+                sound: "scream.mp3", // <-- Звук проигрыша
+                choices: [
+                    { text: "Начать заново", nextScene: "start" }
+                ]
+            },
+            "wait": {
+                text: "Оно стоит возле кровати. Легкие горят от недостатка кислорода. Вонь пропитала воздух.",
+                image: "img_legs.jpg",
+                choices: [
+                    { text: "Не дышать", nextScene: "hypoxia" },
+                    { text: "Схватиться за ногу существа", nextScene: "game_over" }
+                ]
+            },
+            "hypoxia": {
+                text: "В глазах темнеет. Кажется, что ты больше не выдержишь. Существо внезапно уходит.",
+                image: "img_dark.jpg",
+                choices: [
+                    { text: "Оставаться под кроватью", nextScene: "insane" },
+                    { text: "Вылезти", nextScene: "game_over" }
+                ]
+            },
+            "insane": {
+                text: "Ты лежишь уже больше часа. Кажется, что оно ходит по дому. Спустя полчаса шаги стихли.",
+                image: "img_clock.jpg",
+                choices: [
+                    { text: "Выбраться", nextScene: "walking_home" },
+                    { text: "Остаться под кроватью", nextScene: "police" }
+                ]
+            },
+            "police": {
+                text: "Господи, этот парень буквально превратился в мумию. Кто сделал с ним такое?",
+                image: "img_police.jpg",
+                choices: [
+                    { text: "Начать заново", nextScene: "start" }
+                ]
+            },
+            "walking_home": {
+                text: "Ничего не слышно. Может мне просто померещилось? Что же делать?",
+                image: "img_hallway.jpg",
+                choices: [
+                    { text: "Вылезти через окно", nextScene: "escape_hospital" },
+                    { text: "Проверить коридор", nextScene: "terror_house" }
+                ]
+            },
+            "escape_hospital": {
+                text: "Тебе удалось добраться до полицейского участка. В доме не обнаружили следов взлома. Но тебе кажется, что оно еще вернется.",
+                image: "img_safe.jpg",
+                choices: [
+                    { text: "Получить другую концовку", nextScene: "start" }
+                ]
+            },
+            "terror_house": {
+                text: "Паркет под ногами жутко скрипит. В коридоре слишком темно. Немного света не помешает.",
+                image: "img_dark_hall.jpg",
+                choices: [
+                    { text: "Включить свет", nextScene: "light_over" },
+                    { text: "Идти без света", nextScene: "dark_walking" }
+                ]
+            },
+            "light_over": {
+                text: "Ты видишь тень. Оно все время было за твоей спиной!",
+                image: "img_shadow.jpg",
+                sound: "scream.mp3",
+                choices: [
+                    { text: "Начать заново", nextScene: "start" }
+                ]
+            },
+            "dark_walking": {
+                text: "Тебе удалось добраться до кухни. На столе лежит мобильный.",
+                image: "img_kitchen.jpg",
+                choices: [
+                    { text: "Вызвать полицию", nextScene: "end_call" },
+                    { text: "Идти в комнату родителей за ружьем", nextScene: "gun_walking" }
+                ]
+            },
+            "end_call": {
+                text: "Пока ты набирал номер, телефон громко зазвонил. Оно уже бежит по коридору.",
+                image: "img_phone.jpg",
+                sound: "ring.mp3", // <-- Звук звонка (если есть)
+                choices: [
+                    { text: "Начать заново", nextScene: "start" }
+                ]
+            },
+            "gun_walking": {
+                text: "Какой же пароль от сейфа? Как я мог забыть?",
+                image: "img_safe_lock.jpg",
+                choices: [
+                    { text: "5355", nextScene: "5355" },
+                    { text: "5353", nextScene: "5353" }
+                ]
+            },
+            "5355": {
+                text: "Пароль не подошел. На кухне слышны быстрые шаги. Оно идет к вам.",
+                image: "img_door.jpg",
+                choices: [
+                    { text: "Начать заново", nextScene: "start" }
+                ]
+            },
+            "5353": {
+                text: "Отец учил тебя обращаться с ружьем. Оно уже в дверях. Выстрелить?",
+                image: "img_gun.jpg",
+                choices: [
+                    { text: "Стрелять!", nextScene: "end_sad" },
+                    { text: "Получше прицелиться", nextScene: "end_happy" }
+                ]
+            },
+            "end_sad": {
+                text: "Бедный парень. Его мать оказалась настоящей психопаткой. Прикончила всю семью. Он успел застрелить ее, но говорят, что там нашли еще отпечатки. Кроме семьи в доме был кто-то. Бедолага говорит,что видел монстра. Но мы же знаем, что монстров не существует...",
+                image: "img_gunshot.gif",
+                sound: "shot.mp3", // <-- ЗВУК ВЫСТРЕЛА
+                choices: [
+                    { text: "Начать заново", nextScene: "start" }
+                ]
+            },
+            "end_happy": {
+                text: "Что? Мама? Это ты? Боже, чуть не выстрелил! Мама? Почему ты молчишь?",
+                image: "img_mom.jpg",
+                choices: [
+                    { text: "Получить другую концовку", nextScene: "start" }
+                ]
+            }
+        };
+
+        // --- ДВИЖОК ИГРЫ ---
+        function renderScene(sceneId) {
+            const scene = story[sceneId];
+            if (!scene) {
+                console.error("Сцена не найдена: " + sceneId);
+                return renderScene("start");
+            }
+
+            const imgElement = document.getElementById("game-image");
+            const textElement = document.getElementById("story-text");
+            const choicesDiv = document.getElementById("choices");
+
+            // 1. Плавное исчезновение текста
+            textElement.style.opacity = 0;
+            
+            setTimeout(() => {
+                // 2. Обновление картинки и текста
+                // Если картинка не задана, ставит заглушку (чтобы не ломалось)
+                imgElement.src = scene.image || "https://placehold.co/600x400/000/FFF?text=No+Image"; 
+                textElement.innerText = scene.text;
+                textElement.style.opacity = 1;
+
+                // 3. Звуковые эффекты (SFX) для конкретной сцены
+                if (scene.sound) {
+                    const sfx = new Audio(scene.sound);
+                    sfx.volume = 1.0; // Громкость эффектов 100%
+                    sfx.play().catch(e => console.log("Ошибка звука SFX"));
+                }
+
+                // 4. Вибрация телефона
+                if(tg.HapticFeedback) {
+                    tg.HapticFeedback.impactOccurred('medium');
+                }
+
+                // 5. Создание кнопок
+                choicesDiv.innerHTML = "";
+                scene.choices.forEach(choice => {
+                    const btn = document.createElement("button");
+                    btn.innerText = choice.text;
+                    btn.onclick = () => {
+                        renderScene(choice.nextScene);
+                        // При нажатии кнопки тоже можно пустить легкую вибрацию
+                        if(tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+                    };
+                    choicesDiv.appendChild(btn);
+                });
+            }, 200); // Небольшая задержка для анимации
+        }
+
+        // Запуск первой сцены
+        renderScene("start");
+    </script>
+</body>
+</html>
