@@ -329,17 +329,28 @@
                 }
 
                 // 5. Создание кнопок
-                choicesDiv.innerHTML = "";
+                 choicesDiv.innerHTML = "";
                 scene.choices.forEach(choice => {
-                    const btn = document.createElement("button");
-                    btn.innerText = choice.text;
-                    btn.onclick = () => {
-                        renderScene(choice.nextScene);
-                        // При нажатии кнопки тоже можно пустить легкую вибрацию
-                        if(tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-                    };
-                    choicesDiv.appendChild(btn);
-                });
+                const btn = document.createElement("button");
+                btn.innerText = choice.text;
+                
+                // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+                btn.onclick = () => {
+                    // 1. Играем звук клика
+                    const clickSound = new Audio("click.mp3");
+                    clickSound.volume = 0.5; // Громкость (0.5 = 50%)
+                    clickSound.play();
+
+                    // 2. Переходим к следующей сцене
+                    renderScene(choice.nextScene);
+                    
+                    // 3. Вибрация (если есть)
+                    if(tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+                };
+                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
+
+                choicesDiv.appendChild(btn);
+            });
             }, 200); // Небольшая задержка для анимации
         }
 
@@ -349,3 +360,4 @@
 </body>
 
 </html>
+
